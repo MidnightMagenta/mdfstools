@@ -7,7 +7,7 @@ namespace mdfs {
 inline constexpr uint64_t djb2(const char *str) {
 	uint64_t hash = 5381;
 
-	while (str) { hash = ((hash << 5) + hash) + *str++; }
+	while (*str) { hash = ((hash << 5) + hash) + *str++; }
 
 	return hash;
 }

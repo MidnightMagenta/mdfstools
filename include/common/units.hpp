@@ -5,8 +5,8 @@
 #include <cstdint>
 
 namespace mdfs {
-inline constexpr size_t addr_to_lba(uintptr_t addr, size_t sectorSize) { return addr / sectorSize; }
-inline constexpr uintptr_t lba_to_addr(size_t lba, size_t sectorSize) { return lba * sectorSize; }
+inline constexpr size_t addr_to_lba(uintptr_t addr, size_t sectorSize = 512) { return addr / sectorSize; }
+inline constexpr uintptr_t lba_to_addr(size_t lba, size_t sectorSize = 512) { return lba * sectorSize; }
 
 namespace units {
 constexpr uint64_t b = 1;

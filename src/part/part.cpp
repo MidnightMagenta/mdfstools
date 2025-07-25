@@ -1,12 +1,8 @@
-#include <common/crc32.hpp>
-#include <common/gpt.hpp>
-#include <common/units.hpp>
+#include <common/djb2.hpp>
 #include <cstdlib>
 #include <cstring>
-#include <fstream>
-#include <iomanip>
 #include <iostream>
-#include <part/run_info.hpp>
+#include <part/init_table.hpp>
 
 int main(int argc, char **argv) {
 	if (argc < 2) {
@@ -16,22 +12,14 @@ int main(int argc, char **argv) {
 	std::string app = argv[0];
 	std::string subcmdString = argv[1];
 
-	uint64_t subcmdHash = mdfs::djb2(subcmdString.data());
-	mdfs::Subcommand subcmd = mdfs::Subcommand::NONE;
-
-	for (size_t i = 0; i < mdfs::subcmds.size(); i++) {
-		if (mdfs::subcmds[i].first == subcmdHash) {
-			subcmd = mdfs::subcmds[i].second;
+	switch (mdfs::djb2(subcmdString.data())) {
+		case mdfs::djb2("init-table"):
+			mdfs::init_table(argc - 2, argv + 2);
 			break;
-		}
+		default:
+			std::cerr << "Invalid parameter: " << subcmdString << "\n";
+			return EXIT_FAILURE;
 	}
-
-	if(subcmd == mdfs::Subcommand::NONE){
-		std::cerr << "Invalid parameter: " << subcmdString << "\n";
-		return EXIT_FAILURE;
-	}
-
-	for (int i = 2; i < argc; i++) {}
 
 	return EXIT_SUCCESS;
 }

@@ -4,6 +4,7 @@ set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 set(ProjectName "MD-Sign")
 project(${ProjectName})
+set(CXX_STANDARD 23)
 set(CMAKE_INSTALL_PREFIX /usr/local)
 set(version 0.1a)
 
@@ -14,6 +15,9 @@ add_library(mdfs-common STATIC
     include/common/units.hpp
     include/common/crc32.hpp
     include/common/guid.hpp
+    include/common/djb2.hpp
+    include/common/result.hpp
+    include/common/align.hpp
     #sources
     src/common/mbr.cpp
     src/common/gpt.cpp
@@ -25,9 +29,10 @@ target_include_directories(mdfs-common PUBLIC include)
 
 add_executable(mdfs-part
     #headers
-
+    include/part/init_table.hpp
     #sources
     src/part/part.cpp
+    src/part/init_table.cpp
 )
 
 target_include_directories(mdfs-part PUBLIC include)

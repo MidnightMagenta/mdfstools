@@ -15,11 +15,11 @@
 	GUID({0x024DEE41, 0x33E7, 0x11D3, {0x9D, 0x69, 0x00, 0x08, 0xC7, 0x81, 0xF3, 0x9F}})
 
 #define GPT_REVISION_01 0x00010000
-#define GPT_SIGNATURE "EFI PART"
+#define GPT_SIGNATURE 0x5452415020494645
 
 namespace mdfs {
 struct HeaderGPT {
-	char signature[8];
+	uint64_t signature = GPT_SIGNATURE;
 	uint32_t revision = GPT_REVISION_01;
 	uint32_t headerSize;
 	crc32_t headerCRC32;
