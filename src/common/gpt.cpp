@@ -19,7 +19,7 @@ mdfs::mbr::MBR mdfs::build_protective_mbr(size_t diskSize, size_t sectorSize) {
 			.OSType = 0xEE,
 			.endingCHS = {0xFF, 0xFF, 0xFF},
 			.startingLBA = 0x00000001,
-			.sizeInLBA = ((diskSize / sectorSize) > UINT32_MAX) ? 0xFFFFFFFF : uint32_t(diskSize / sectorSize)};
+			.sizeInLBA = ((diskSize / sectorSize) > UINT32_MAX) ? 0xFFFFFFFF : uint32_t(diskSize / sectorSize) - 1};
 	protectiveMBR.partitionRecords[1] = {.bootIndicator = 0x00,
 										 .startingCHS = {0x00, 0x00, 0x00},
 										 .OSType = 0x00,

@@ -1,3 +1,5 @@
+; code assembled and copied into an array in gpt.cpp 
+; used for creation of the protective MBR
 [org 0x7C00]
 
 start:
