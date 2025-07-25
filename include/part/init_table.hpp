@@ -17,6 +17,7 @@ namespace mdfs{
 		GUID disk_guid = UUID_NULL;
 
 		bool dryRun = false;
+		bool clearAll = false;
 	};
 
 	Result init_table(int argc, char** argv);

@@ -95,6 +95,9 @@ static mdfs::Result get_run_info(int argc, char **argv, mdfs::RunInfo *runInfo) 
 			case mdfs::djb2("dry-run"):
 				runInfo->dryRun = true;
 				break;
+			case mdfs::djb2("clear-image"):
+				runInfo->clearAll = true;
+				break;
 			default:
 				std::cerr << "Invalid parameter: " << fullMatch << "\n";
 				return mdfs::Result::FAILURE;
@@ -133,7 +136,7 @@ void print_dry_run(const mdfs::mbr::MBR &protectiveMBR, const mdfs::HeaderGPT &g
 	std::cout << "\n";
 }
 
-static mdfs::Result make_partition_table(const mdfs::RunInfo &info) {
+static mdfs::Result make_gpt_partition_table(const mdfs::RunInfo &info) {
 	// if GUID not specified, generate a random one
 	GUID discGuid = UUID_NULL;
 	if (memcmp(&info.disk_guid, &discGuid, sizeof(GUID)) == 0) {
@@ -194,9 +197,16 @@ static mdfs::Result make_partition_table(const mdfs::RunInfo &info) {
 	}
 
 	//clear the space for the entries
-	disk.seekp(0);
 	std::vector<char> zeros(diskSize, 0x00);
-	disk.write((char *) zeros.data(), zeros.size());
+	if (info.clearAll) {
+		disk.seekp(0);
+		disk.write((char *) zeros.data(), zeros.size());
+	} else {
+		disk.seekp(0);
+		disk.write((char *) zeros.data(), totalGptSize);
+		disk.seekp(diskSize - totalGptSize);
+		disk.write((char *) zeros.data(), totalGptSize);
+	}
 
 	// write the data structures
 	disk.seekp(0);
@@ -212,11 +222,21 @@ static mdfs::Result make_partition_table(const mdfs::RunInfo &info) {
 	return mdfs::Result::SUCCESS;
 }
 
+static mdfs::Result make_mbr_partition_table(const mdfs::RunInfo &info) { return mdfs::Result::FAILURE; }
+
+static mdfs::Result make_partition_table(const mdfs::RunInfo &info) {
+	switch (info.type) {
+		case mdfs::PartType::GPT:
+			return make_gpt_partition_table(info);
+		case mdfs::PartType::MBR:
+			return make_mbr_partition_table(info);
+		default:
+			return mdfs::Result::FAILURE;
+	}
+}
+
 mdfs::Result mdfs::init_table(int argc, char **argv) {
 	RunInfo info;
 	if (get_run_info(argc, argv, &info) != mdfs::Result::SUCCESS) { return mdfs::Result::FAILURE; }
-
-	std::cout << "Sector size " << info.sectorSize << "\n";
-
 	return make_partition_table(info);
 }
