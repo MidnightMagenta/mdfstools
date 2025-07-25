@@ -1,0 +1,44 @@
+#include <cassert>
+#include <common/gpt.hpp>
+#include <cstring>
+
+static const uint8_t prot_mbr_code[46] = {
+		0xbe, 0x12, 0x7c, 0xac, 0x3c, 0x00, 0x74, 0x06, 0xb4, 0x0e, 0xcd, 0x10, 0xeb, 0xf5, 0xfa, 0xf4,
+		0xeb, 0xfc, 0x54, 0x68, 0x69, 0x73, 0x20, 0x69, 0x73, 0x20, 0x6e, 0x6f, 0x74, 0x20, 0x61, 0x20,
+		0x62, 0x6f, 0x6f, 0x74, 0x61, 0x62, 0x6c, 0x65, 0x20, 0x64, 0x69, 0x73, 0x6b, 0x00,
+};
+
+mdfs::mbr::MBR mdfs::build_protective_mbr(size_t diskSize, size_t sectorSize) {
+	mdfs::mbr::MBR protectiveMBR;
+	memset(&protectiveMBR.bootCode, 0xF4, 424);
+	memcpy(&protectiveMBR.bootCode, prot_mbr_code, 46);
+
+	protectiveMBR.partitionRecords[0] = {
+			.bootIndicator = 0x00,
+			.startingCHS = {0x00, 0x02, 0x00},
+			.OSType = 0xEE,
+			.endingCHS = {0xFF, 0xFF, 0xFF},
+			.startingLBA = 0x00000001,
+			.sizeInLBA = ((diskSize / sectorSize) > UINT32_MAX) ? 0xFFFFFFFF : uint32_t(diskSize / sectorSize)};
+	protectiveMBR.partitionRecords[1] = {.bootIndicator = 0x00,
+										 .startingCHS = {0x00, 0x00, 0x00},
+										 .OSType = 0x00,
+										 .endingCHS = {0x00, 0x00, 0x00},
+										 .startingLBA = 0x00000000,
+										 .sizeInLBA = 0x00000000};
+	protectiveMBR.partitionRecords[2] = {.bootIndicator = 0x00,
+										 .startingCHS = {0x00, 0x00, 0x00},
+										 .OSType = 0x00,
+										 .endingCHS = {0x00, 0x00, 0x00},
+										 .startingLBA = 0x00000000,
+										 .sizeInLBA = 0x00000000};
+	protectiveMBR.partitionRecords[3] = {.bootIndicator = 0x00,
+										 .startingCHS = {0x00, 0x00, 0x00},
+										 .OSType = 0x00,
+										 .endingCHS = {0x00, 0x00, 0x00},
+										 .startingLBA = 0x00000000,
+										 .sizeInLBA = 0x00000000};
+
+	assert(protectiveMBR.signature[0] == 0x55 && protectiveMBR.signature[1] == 0xAA);
+	return protectiveMBR;
+}
