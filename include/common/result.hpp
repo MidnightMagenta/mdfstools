@@ -2,7 +2,7 @@
 #define MDFS_RESULT_H
 
 namespace mdfs {
-enum class Result { SUCCESS, FAILURE };
+enum class Result { SUCCESS, FAILURE, NO_WORK };
 }
 
 #endif

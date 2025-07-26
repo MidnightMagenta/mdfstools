@@ -27,17 +27,17 @@ add_library(mdfs-common STATIC
 
 target_include_directories(mdfs-common PUBLIC include)
 
-add_executable(mdfs-part
+add_executable(mdfst
     #headers
     include/part/init_table.hpp
     #sources
-    src/part/part.cpp
+    src/part/main.cpp
     src/part/init_table.cpp
 )
 
-target_include_directories(mdfs-part PUBLIC include)
-target_link_libraries(mdfs-part PRIVATE mdfs-common)
-target_compile_definitions(mdfs-part PUBLIC VERSION="${version}")
+target_include_directories(mdfst PUBLIC include)
+target_link_libraries(mdfst PRIVATE mdfs-common)
+target_compile_definitions(mdfst PUBLIC VERSION="${version}")
 
 add_executable(mdfs-uuidarr 
     src/guid_to_arr.cpp

@@ -4,6 +4,10 @@
 #include <iostream>
 #include <part/init_table.hpp>
 
+void print_help(){
+	std::cout << "Full program help\n";
+}
+
 int main(int argc, char **argv) {
 	if (argc < 2) {
 		std::cerr << "Invalid argument combination\n";
@@ -15,6 +19,9 @@ int main(int argc, char **argv) {
 	switch (mdfs::djb2(subcmdString.data())) {
 		case mdfs::djb2("init-table"):
 			mdfs::init_table(argc - 2, argv + 2);
+			break;
+		case mdfs::djb2("help"):
+			print_help();
 			break;
 		default:
 			std::cerr << "Invalid parameter: " << subcmdString << "\n";
