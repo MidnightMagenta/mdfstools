@@ -1,4 +1,5 @@
 #include <common/align.hpp>
+#include <common/block_device.hpp>
 #include <common/crc32.hpp>
 #include <common/djb2.hpp>
 #include <common/gpt.hpp>
@@ -6,7 +7,6 @@
 #include <common/units.hpp>
 #include <cstring>
 #include <filesystem>
-#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <part/init_table.hpp>
@@ -66,6 +66,19 @@ static void print_help() {
 	std::cout << std::left << std::setw(10) << ""
 			  << "is valid only if partition table type is GPT\n\n";
 
+	std::cout << std::left << std::setw(5) << ""
+			  << "--boot-code=[path]\n";
+	std::cout << std::left << std::setw(10) << ""
+			  << "Used to specify the path to a binary file containing boot code to be inserted into the MBR\n";
+	std::cout << std::left << std::setw(10) << ""
+			  << "partition table. The binary file may be no larger than 424 bytes. This option is valid only\n";
+	std::cout << std::left << std::setw(10) << ""
+			  << "if partition table type is MBR\n\n";
+
+	std::cout << std::left << std::setw(5) << ""
+			  << "--disk-signature=[signature]\n";
+	std::cout << std::left << std::setw(10) << ""
+			  << "Used to specify disk signature. This option is valid only if partition table type is MBR.\n\n";
 
 	std::cout << std::left << std::setw(5) << ""
 			  << "--clear-image\n";
@@ -367,33 +380,28 @@ static mdfs::Result make_gpt_partition_table(const mdfs::RunInfo &info) {
 			  << std::left << std::setw(20) << "Disk GUID: " << "";
 	print_uuid(diskGuid);
 
-	// get the size of the disk, and the size of the full GPT (protective MBR + GPT header + partition entry array)
-	std::fstream disk(info.inFile, std::ios::in | std::ios::out | std::ios::binary);
-	disk.seekp(0, std::ios::end);
-	size_t diskSize = mdfs::align_down<size_t>(disk.tellp(), info.sectorSize.value());
+	mdfs::BlockDevice disk(info.inFile, info.sectorSize.value());
 
 	size_t totalGptSize = mdfs::align_up<size_t>(
 			info.sectorSize.value() * 2 + (info.partitionEntryCount.value() * sizeof(mdfs::PartitionEntryGPT)),
 			info.sectorSize.value());
 
 	//build the structures
-	mdfs::mbr::MBR protectiveMBR = mdfs::build_protective_mbr(diskSize, info.sectorSize.value());
-	mdfs::HeaderGPT gptPrimaryHeader = {
-			.signature = GPT_SIGNATURE,
-			.revision = GPT_REVISION_01,
-			.headerSize = sizeof(mdfs::HeaderGPT),
-			.headerCRC32 = 0,
-			.reserved = {0, 0, 0, 0},
-			.myLBA = 1,
-			.alternateLBA = mdfs::addr_to_lba(diskSize, info.sectorSize.value()) - 1,
-			.firstUsableLBA = mdfs::addr_to_lba(totalGptSize, info.sectorSize.value()),
-			.lastUsableLBA =
-					mdfs::addr_to_lba(diskSize - (totalGptSize - info.sectorSize.value()), info.sectorSize.value()),
-			.diskGUID = diskGuid,
-			.partitionEntryLBA = 2,
-			.numberOfPartitionEntries = uint32_t(info.partitionEntryCount.value()),
-			.sizeOfPartitionEntries = sizeof(mdfs::PartitionEntryGPT),
-			.partitionEntryArrayCRC32 = 0};
+	mdfs::mbr::MBR protectiveMBR = mdfs::build_protective_mbr(disk.size_b(), info.sectorSize.value());
+	mdfs::HeaderGPT gptPrimaryHeader = {.signature = GPT_SIGNATURE,
+										.revision = GPT_REVISION_01,
+										.headerSize = sizeof(mdfs::HeaderGPT),
+										.headerCRC32 = 0,
+										.reserved = {0, 0, 0, 0},
+										.myLBA = 1,
+										.alternateLBA = disk.size_lba() - 1,
+										.firstUsableLBA = mdfs::addr_to_lba(totalGptSize, info.sectorSize.value()),
+										.lastUsableLBA = disk.size_lba() - totalGptSize / info.sectorSize.value(),
+										.diskGUID = diskGuid,
+										.partitionEntryLBA = 2,
+										.numberOfPartitionEntries = uint32_t(info.partitionEntryCount.value()),
+										.sizeOfPartitionEntries = sizeof(mdfs::PartitionEntryGPT),
+										.partitionEntryArrayCRC32 = 0};
 
 	mdfs::PartitionEntryGPT *partitionEntryArray = new mdfs::PartitionEntryGPT[info.partitionEntryCount.value()];
 	memset(partitionEntryArray, 0x00, info.partitionEntryCount.value() * sizeof(mdfs::PartitionEntryGPT));
@@ -407,11 +415,7 @@ static mdfs::Result make_gpt_partition_table(const mdfs::RunInfo &info) {
 	gptBackupHeader.headerCRC32 = 0;
 	gptBackupHeader.myLBA = gptPrimaryHeader.alternateLBA;
 	gptBackupHeader.alternateLBA = gptPrimaryHeader.myLBA;
-	gptBackupHeader.partitionEntryLBA =
-			gptBackupHeader.myLBA -
-			mdfs::align_up<size_t>(gptPrimaryHeader.sizeOfPartitionEntries * gptPrimaryHeader.numberOfPartitionEntries,
-								   info.sectorSize.value()) /
-					info.sectorSize.value();
+	gptBackupHeader.partitionEntryLBA = gptPrimaryHeader.lastUsableLBA + 1;
 	gptBackupHeader.headerCRC32 = mdfs::crc32(&gptBackupHeader, sizeof(mdfs::HeaderGPT));
 
 	if (info.dryRun) {
@@ -421,25 +425,23 @@ static mdfs::Result make_gpt_partition_table(const mdfs::RunInfo &info) {
 	}
 
 	//clear the space for the entries
-	std::vector<char> zeros(diskSize, 0x00);
+	std::vector<char> zeros(disk.size_b(), 0x00);
 	if (info.clearAll) {
 		disk.seekp(0);
 		disk.write((char *) zeros.data(), zeros.size());
 	} else {
 		disk.seekp(0);
 		disk.write((char *) zeros.data(), totalGptSize);
-		disk.seekp(diskSize - totalGptSize);
+		disk.seekp((disk.size_b() - totalGptSize) / disk.block_size());
 		disk.write((char *) zeros.data(), totalGptSize);
 	}
 
 	// write the data structures
 	disk.seekp(0);
-	disk.write((char *) &protectiveMBR, sizeof(protectiveMBR));
-
-	disk.seekp(mdfs::lba_to_addr(1, info.sectorSize.value()));
+	disk.write((char *) &protectiveMBR, sizeof(mdfs::mbr::MBR));
+	disk.seekp(1);
 	disk.write((char *) &gptPrimaryHeader, sizeof(mdfs::HeaderGPT));
-
-	disk.seekp(mdfs::lba_to_addr(gptPrimaryHeader.alternateLBA, info.sectorSize.value()));
+	disk.seekp(gptPrimaryHeader.alternateLBA);
 	disk.write((char *) &gptBackupHeader, sizeof(mdfs::HeaderGPT));
 
 	disk.close();
@@ -476,14 +478,24 @@ static mdfs::Result make_mbr_partition_table(const mdfs::RunInfo &info) {
 		std::cout << "\n";
 		return mdfs::Result::SUCCESS;
 	}
-
 	std::cout << "Writing MBR partition table\n";
 	std::cout << std::left << std::setw(20)
 			  << "Boot code:" << (info.inBootCodeBin.empty() ? "Default" : info.inBootCodeBin) << "\n";
-	std::cout << std::left << std::setw(20) << std::hex << "Disk signature:" << "0x" << info.diskSignature.value() << std::dec
-			  << "\n";
+	std::cout << std::left << std::setw(20) << std::hex << "Disk signature:" << "0x" << info.diskSignature.value()
+			  << std::dec << "\n";
 
-	std::fstream disk(info.inFile, std::ios::in | std::ios::out | std::ios::binary);
+	// std::fstream disk(info.inFile, std::ios::in | std::ios::out | std::ios::binary);
+	// disk.seekp(0, std::ios::end);
+	// size_t diskSize = mdfs::align_down<size_t>(disk.tellp(), info.sectorSize.value());
+
+	mdfs::BlockDevice disk(info.inFile);
+
+	std::vector<char> zeros(disk.size_b(), 0x00);
+	if (info.clearAll) {
+		disk.seekp(0);
+		disk.write((char *) zeros.data(), zeros.size());
+	}
+
 	disk.seekp(0);
 	disk.write((char *) &mbr, sizeof(mdfs::mbr::MBR));
 	return mdfs::Result::SUCCESS;

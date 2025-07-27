@@ -18,6 +18,7 @@ add_library(mdfs-common STATIC
     include/common/djb2.hpp
     include/common/result.hpp
     include/common/align.hpp
+    include/common/block_device.hpp
     #sources
     src/common/mbr.cpp
     src/common/gpt.cpp
