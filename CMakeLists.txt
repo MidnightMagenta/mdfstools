@@ -19,6 +19,7 @@ add_library(mdfs-common STATIC
     include/common/result.hpp
     include/common/align.hpp
     include/common/block_device.hpp
+    include/common/CLI11.hpp
     #sources
     src/common/mbr.cpp
     src/common/gpt.cpp
@@ -30,10 +31,10 @@ target_include_directories(mdfs-common PUBLIC include)
 
 add_executable(mdfst
     #headers
-    include/part/init_table.hpp
+    include/part/initpart.hpp
     #sources
     src/part/main.cpp
-    src/part/init_table.cpp
+    src/part/initpart.cpp
 )
 
 target_include_directories(mdfst PUBLIC include)

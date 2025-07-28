@@ -1,32 +1,24 @@
+#include <common/CLI11.hpp>
 #include <common/djb2.hpp>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <iostream>
-#include <part/init_table.hpp>
-
-void print_help(){
-	std::cout << "Full program help\n";
-}
+#include <part/initpart.hpp>
+#include <random>
+#include <strings.h>
 
 int main(int argc, char **argv) {
-	if (argc < 2) {
-		std::cerr << "Invalid argument combination\n";
-		return EXIT_FAILURE;
-	}
-	std::string app = argv[0];
-	std::string subcmdString = argv[1];
+	CLI::App app;
+	argv = app.ensure_utf8(argv);
+	app.require_subcommand(1);
 
-	switch (mdfs::djb2(subcmdString.data())) {
-		case mdfs::djb2("init-table"):
-			mdfs::init_table(argc - 2, argv + 2);
-			break;
-		case mdfs::djb2("help"):
-			print_help();
-			break;
-		default:
-			std::cerr << "Invalid parameter: " << subcmdString << "\n";
-			return EXIT_FAILURE;
-	}
+	mdfs::InitPartInfo initpartInfo;
+	CLI::App *initpart = mdfs::make_initpart_app(initpartInfo, app);
+
+	CLI11_PARSE(app, argc, argv);
+
+	if (initpart->parsed()) { return mdfs::do_initpart(initpartInfo, initpart); }
 
 	return EXIT_SUCCESS;
 }
